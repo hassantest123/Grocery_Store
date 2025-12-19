@@ -95,7 +95,7 @@ class email_service {
             <p>Check out our new products this week! We've added some amazing items just for you.</p>
             ${productList}
             <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/Shop" 
+              <a href='https://grocery-store-frontend-pied.vercel.app/Shop' 
                  style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 Shop Now
               </a>
@@ -147,7 +147,7 @@ class email_service {
               </div>
             </div>
             <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/MyAccountOrder" 
+              <a href="https://grocery-store-frontend-pied.vercel.app/MyAccountOrder" 
                  style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 View Orders
               </a>
@@ -191,7 +191,7 @@ class email_service {
               <p style="color: #28a745; font-weight: bold; font-size: 18px;">Rs ${product.price}</p>
             </div>
             <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/Shop" 
+              <a href="https://grocery-store-frontend-pied.vercel.app/Shop" 
                  style="background-color: #ffc107; color: #333; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                 View Product
               </a>
