@@ -39,10 +39,14 @@ const eventEmitter = require('./emitter');
 
 /**
  * REDIS CONFIGURATION
+ * Priority: REDIS_URL > Individual settings (REDIS_SERVERS, REDIS_PORT, REDIS_PASSWORD)
  */
-const REDIS_SERVERS = ['172.18.0.86']; // Add more servers as needed for failover
-const REDIS_PORT = 6379;
-const REDIS_PASSWORD = 'openx';
+const REDIS_URL = process.env.REDIS_URL || 'redis://default:ozjBKNk9cWTz1sJ8YP8Uppp27PL2eR0X@redis-10509.c99.us-east-1-4.ec2.cloud.redislabs.com:10509';
+const REDIS_SERVERS = process.env.REDIS_SERVERS 
+    ? process.env.REDIS_SERVERS.split(',') 
+    : ['172.18.0.86']; // Add more servers as needed for failover
+const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
+const REDIS_PASSWORD = process.env.REDIS_PASSWORD || 'openx';
 
 /**
  * RETRY AND FAILOVER CONFIGURATION
@@ -59,11 +63,123 @@ let currentServerIndex = 0;
 
 // Function to create ioredis client
 function createRedisClient(serverIndex) {
-  const server = REDIS_SERVERS[serverIndex];
+  let redisOptions;
+  
+  // If REDIS_URL is provided, use it directly (priority)
+  if (REDIS_URL) {
+    console.log(`FILE: redis.js | createRedisClient | Creating Redis client using REDIS_URL`);
+    
+    redisOptions = {
+      // ioredis can parse the URL automatically, but we'll set it explicitly
+      // Parse URL to extract components for better error handling
+      ...(REDIS_URL.startsWith('rediss://') ? { 
+        tls: {
+          rejectUnauthorized: false // For Redis Labs SSL connections
+        }
+      } : {}),
+      retryStrategy: (retries) => {
+        console.log(`FILE: redis.js | retryStrategy | Retry attempt ${retries}`);
+        
+        // Report retry attempts to Munshi
+        if (MUNSHI_ENABLED && retries > 2) {
+          const error = new Error(`Redis connection retry attempt ${retries}`);
+          eventEmitter.emit('event_router', 'MUNSHI_EVENT', {
+            error: error,
+            error_code: 'REDIS-RETRY-001',
+            error_title: 'Redis Connection Retry Attempts',
+            error_type: 'CACHE_ERROR',
+            metadata: {
+              redis_url: REDIS_URL.replace(/:[^:@]+@/, ':****@'), // Hide password in logs
+              retry_count: retries,
+              max_retries_before_failover: MAX_RETRIES_BEFORE_FAILOVER,
+            },
+            other_data: {
+              timestamp: Math.floor(Date.now() / 1000)
+            },
+            ttl: 1296000 // 15 days for retry attempts
+          });
+        }
+        
+        if (retries > MAX_RETRIES_BEFORE_FAILOVER) {
+          console.log(`FILE: redis.js | retryStrategy | Max retries reached`);
+          return 15000; // Wait 15 seconds before retrying
+        }
+        // Reconnect after increasing intervals
+        return Math.min(retries * 3000, RETRY_INTERVAL); // Wait up to configured interval
+      },
+      // Important: maxRetriesPerRequest should be set to null for BullMQ compatibility
+      maxRetriesPerRequest: null,
+    };
+    
+    // Create client with URL
+    const client = new Redis(REDIS_URL, redisOptions);
+    
+    // Event listeners
+    client.on('connect', () => {
+      console.log(`FILE: redis.js | client.on.connect | Redis client connected via URL`);
+    });
+    
+    client.on('ready', () => {   
+      console.log(`FILE: redis.js | client.on.ready | Redis client ready to use`);
+    });
+    
+    client.on('error', (err) => {
+      console.error(`FILE: redis.js | client.on.error | Redis Client Error:`, err);
+      
+      // Report Redis errors to Munshi
+      if (MUNSHI_ENABLED) {
+        eventEmitter.emit('event_router', 'MUNSHI_EVENT', {
+          error: err,
+          error_code: 'REDIS-CONN-001',
+          error_title: 'Redis Connection Error',
+          error_type: 'CACHE_ERROR',
+          metadata: {
+            redis_url: REDIS_URL.replace(/:[^:@]+@/, ':****@'), // Hide password in logs
+            error_name: err.name
+          },
+          other_data: {
+            error_message: err.message,
+            error_code: err.code,
+            error_command: err.command || null,
+            timestamp: Math.floor(Date.now() / 1000)
+          },
+          ttl: 2592000 // 30 days for connection errors
+        });
+      }
+    });
+    
+    client.on('end', () => {
+      console.log(`FILE: redis.js | client.on.end | Redis client disconnected`);
+      
+      // Report Redis disconnection to Munshi
+      if (MUNSHI_ENABLED) {
+        const error = new Error(`Redis client disconnected`);
+        eventEmitter.emit('event_router', 'MUNSHI_EVENT', {
+          error: error,
+          error_code: 'REDIS-CONN-002',
+          error_title: 'Redis Connection Ended',
+          error_type: 'CACHE_ERROR',
+          metadata: {
+            redis_url: REDIS_URL.replace(/:[^:@]+@/, ':****@'), // Hide password in logs
+            connection_state: 'disconnected'
+          },
+          other_data: {
+            timestamp: Math.floor(Date.now() / 1000)
+          },
+          ttl: 2592000 // 30 days for disconnection events
+        });
+      }
+    });
+    
+    return client;
+  }
+  
+  // Fallback to individual server configuration
+  const server = REDIS_SERVERS[serverIndex || 0];
   
   console.log(`FILE: redis.js | createRedisClient | Creating Redis client for server: ${server}`);
   
-  const client = new Redis({
+  redisOptions = {
     host: server,
     port: REDIS_PORT,
     password: REDIS_PASSWORD,
@@ -138,7 +254,9 @@ function createRedisClient(serverIndex) {
     },
     // Important: maxRetriesPerRequest should be set to null for BullMQ compatibility
     maxRetriesPerRequest: null,
-  });
+  };
+  
+  const client = new Redis(redisOptions);
   
   // Event listeners
   client.on('connect', () => {
@@ -206,7 +324,7 @@ function createRedisClient(serverIndex) {
   return client;
 }
 
-// Initialize the Redis client with the first server
-const redisClient = createRedisClient(currentServerIndex);
+// Initialize the Redis client
+const redisClient = createRedisClient();
 
 module.exports = redisClient;
