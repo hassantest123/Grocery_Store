@@ -215,3 +215,4 @@ Backend/
 - Products are soft-deleted (is_active flag)
 - Discount percentage is auto-calculated from original_price and price
 
+"# Grocery_Store" 
