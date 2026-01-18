@@ -35,10 +35,6 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *                   type: object
  *               shipping_address:
  *                 type: object
- *               delivery_time:
- *                 type: string
- *               delivery_instructions:
- *                 type: string
  *               payment_method:
  *                 type: string
  *                 enum: [stripe, jazzcash, easypaisa, cod]
@@ -134,6 +130,50 @@ router.get("/", auth_middleware.authenticate, order_controller.get_user_orders);
  *         description: Internal server error
  */
 router.get("/admin/all", auth_middleware.authenticate, auth_middleware.is_admin, order_controller.get_all_orders);
+
+/**
+ * @swagger
+ * /api/v1/orders/{id}/status:
+ *   put:
+ *     summary: Update order status (Admin only)
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - order_status
+ *             properties:
+ *               order_status:
+ *                 type: string
+ *                 enum: [pending, confirmed, processing, shipped, delivered, completed, cancelled]
+ *                 description: New order status
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin only)
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put("/:order_id/status", auth_middleware.authenticate, auth_middleware.is_admin, order_controller.update_order_status);
 
 router.get("/:order_id", auth_middleware.authenticate, order_controller.get_order_by_id);
 

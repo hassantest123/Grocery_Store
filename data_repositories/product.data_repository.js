@@ -119,6 +119,20 @@ class product_data_repository {
       throw error;
     }
   }
+
+  async get_products_list() {
+    try {
+      console.log(`FILE: product.data_repository.js | get_products_list | Fetching products list (name and id only)`);
+      const products = await product_model
+        .find({ is_active: 1 })
+        .select('_id name price')
+        .sort({ name: 1 });
+      return products;
+    } catch (error) {
+      console.error(`FILE: product.data_repository.js | get_products_list | Error:`, error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new product_data_repository();

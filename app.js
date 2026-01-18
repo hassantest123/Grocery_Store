@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const path = require("path");
 const mongoose_connection = require("./_core_app_connectivities/db_mongo_mongoose");
 const redisConnection = require("./_core_app_connectivities/redis");
 const { swagger_ui, swagger_spec } = require("./swagger");
@@ -97,14 +98,25 @@ app.use("/api/v1/jazzcash", jazzcash_routes);
 app.use("/api/v1/upload", upload_routes);
 app.use("/api/v1/notifications", notification_routes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    STATUS: "ERROR",
-    ERROR_FILTER: "INVALID_REQUEST",
-    ERROR_CODE: "VTAPP-99999",
-    ERROR_DESCRIPTION: "Route not found",
-  });
+// Serve static files from React app build directory
+const frontendBuildPath = path.join(__dirname, "build");
+app.use(express.static(frontendBuildPath));
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+// This ensures React Router works correctly
+app.get("*", (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith("/api/") || req.path.startsWith("/api-docs") || req.path.startsWith("/admin/queues")) {
+    return res.status(404).json({
+      STATUS: "ERROR",
+      ERROR_FILTER: "INVALID_REQUEST",
+      ERROR_CODE: "VTAPP-99999",
+      ERROR_DESCRIPTION: "Route not found",
+    });
+  }
+  
+  // Serve React app for all other routes
+  res.sendFile(path.join(frontendBuildPath, "index.html"));
 });
 
 // Error handler

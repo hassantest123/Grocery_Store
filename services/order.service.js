@@ -1,5 +1,6 @@
 const order_data_repository = require("../data_repositories/order.data_repository");
 const payment_service = require("./payment.service");
+const product_data_repository = require("../data_repositories/product.data_repository");
 
 class order_service {
   constructor() {
@@ -166,6 +167,99 @@ class order_service {
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-01312",
         ERROR_DESCRIPTION: error.message || "Failed to fetch orders",
+      };
+    }
+  }
+
+  async update_order_status(order_id, new_status) {
+    try {
+      console.log(`FILE: order.service.js | update_order_status | Updating order ${order_id} to status: ${new_status}`);
+
+      // Validate status
+      const valid_statuses = ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"];
+      if (!valid_statuses.includes(new_status)) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-01314",
+          ERROR_DESCRIPTION: `Invalid order status. Must be one of: ${valid_statuses.join(", ")}`,
+        };
+      }
+
+      // Get the order first
+      const order = await order_data_repository.get_order_by_id(order_id);
+      if (!order) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-01315",
+          ERROR_DESCRIPTION: "Order not found",
+        };
+      }
+
+      // If status is being changed to "completed", deduct stock from products
+      if (new_status === "completed" && order.order_status !== "completed") {
+        console.log(`FILE: order.service.js | update_order_status | Deducting stock for completed order`);
+        
+        // Deduct stock for each item in the order
+        for (const item of order.items) {
+          try {
+            const product_id = item.product_id;
+            const quantity_to_deduct = item.quantity || 0;
+
+            if (product_id && quantity_to_deduct > 0) {
+              // Get current product
+              const product = await product_data_repository.get_product_by_id(product_id);
+              
+              if (product) {
+                const current_stock = product.stock_quantity || 0;
+                const new_stock = Math.max(0, current_stock - quantity_to_deduct);
+
+                // Update product stock
+                await product_data_repository.update_product(product_id, {
+                  stock_quantity: new_stock,
+                });
+
+                console.log(`FILE: order.service.js | update_order_status | Product ${product_id}: Stock reduced from ${current_stock} to ${new_stock}`);
+              } else {
+                console.warn(`FILE: order.service.js | update_order_status | Product ${product_id} not found, skipping stock deduction`);
+              }
+            }
+          } catch (item_error) {
+            console.error(`FILE: order.service.js | update_order_status | Error deducting stock for item:`, item_error);
+            // Continue with other items even if one fails
+          }
+        }
+      }
+
+      // Update order status
+      const updated_order = await order_data_repository.update_order(order_id, {
+        order_status: new_status,
+      });
+
+      if (!updated_order) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "TECHNICAL_ISSUE",
+          ERROR_CODE: "VTAPP-01316",
+          ERROR_DESCRIPTION: "Failed to update order status",
+        };
+      }
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: updated_order,
+      };
+    } catch (error) {
+      console.error(`FILE: order.service.js | update_order_status | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-01317",
+        ERROR_DESCRIPTION: error.message || "Failed to update order status",
       };
     }
   }

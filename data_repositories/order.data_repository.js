@@ -15,7 +15,8 @@ class order_data_repository {
 
   async create_order(order_data) {
     try {
-      console.log(`FILE: order.data_repository.js | create_order | Creating order for user: ${order_data.user_id}`);
+      const user_info = order_data.user_id ? `user: ${order_data.user_id}` : 'guest order';
+      console.log(`FILE: order.data_repository.js | create_order | Creating order for ${user_info}`);
       const new_order = new order_model(order_data);
       const saved_order = await new_order.save();
       return saved_order;

@@ -123,6 +123,39 @@ router.get("/", product_controller.get_all_products);
 
 /**
  * @swagger
+ * /api/v1/products/list:
+ *   get:
+ *     summary: Get products list (name and id only, no pagination)
+ *     tags: [Products]
+ *     description: Returns a simple list of all active products with only _id, name, and price fields
+ *     responses:
+ *       200:
+ *         description: List of products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 STATUS:
+ *                   type: string
+ *                   example: SUCCESSFUL
+ *                 DB_DATA:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ */
+// IMPORTANT: This route must come before /:product_id to avoid "list" being treated as product_id
+router.get("/list", product_controller.get_products_list);
+
+/**
+ * @swagger
  * /api/v1/products/{product_id}:
  *   get:
  *     summary: Get product by ID

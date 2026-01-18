@@ -69,8 +69,6 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *                     type: string
  *                   address:
  *                     type: string
- *               delivery_instructions:
- *                 type: string
  *               tax:
  *                 type: number
  *               shipping:

@@ -13,8 +13,9 @@ const order_schema = new Schema({
   },
   user_id: {
     type: mongoose.Types.ObjectId,
-    required: true,
+    required: false, // Optional for guest orders created from admin dashboard
     ref: "user",
+    default: null,
   },
   order_number: {
     type: String,
@@ -60,14 +61,6 @@ const order_schema = new Schema({
     phone: { type: String, default: null },
     address: { type: String, required: true },
   },
-  delivery_time: {
-    type: String,
-    default: null,
-  },
-  delivery_instructions: {
-    type: String,
-    default: null,
-  },
   payment_method: {
     type: String,
     enum: ["stripe", "jazzcash", "easypaisa", "cod"],
@@ -92,7 +85,7 @@ const order_schema = new Schema({
   },
   order_status: {
     type: String,
-    enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"],
+    enum: ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"],
     default: "pending",
   },
   is_active: {
@@ -110,10 +103,13 @@ const order_schema = new Schema({
   },
 });
 
-order_schema.index({ user_id: 1, created_at: -1 });
+// Index user_id with sparse option to handle null values (guest orders)
+order_schema.index({ user_id: 1, created_at: -1 }, { sparse: true });
 order_schema.index({ order_number: 1 }, { unique: true });
 order_schema.index({ payment_status: 1 });
 order_schema.index({ order_status: 1 });
+// Index for guest orders (orders without user_id)
+order_schema.index({ created_at: -1 });
 
 module.exports = grocery_store_db.model("order", order_schema);
 

@@ -183,6 +183,28 @@ class product_controller {
       });
     }
   }
+
+  async get_products_list(req, res) {
+    try {
+      console.log(`FILE: product.controller.js | get_products_list | Request received`);
+      
+      const result = await product_service.get_products_list();
+      
+      if (result.STATUS === "ERROR") {
+        return res.status(400).json(result);
+      }
+      
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: product.controller.js | get_products_list | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00509",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
 }
 
 module.exports = new product_controller();

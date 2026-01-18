@@ -7,7 +7,7 @@ class order_controller {
       console.log(`FILE: order.controller.js | create_order | Request received`);
 
       const user = req.user; // From auth middleware
-      const { items, shipping_address, delivery_time, delivery_instructions, payment_method, payment_account_number, tax, shipping } = req.body;
+      const { items, shipping_address, payment_method, payment_account_number, tax, shipping, user_id } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
@@ -40,16 +40,31 @@ class order_controller {
       const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const total = subtotal + (tax || 0) + (shipping || 0);
 
+      // Determine user_id:
+      // 1. If user_id is explicitly provided in request body (including null), use it
+      // 2. If user_id is NOT provided in request body, use authenticated user's ID from token
+      let order_user_id = null;
+      
+      // Check if user_id key exists in request body (not just if it's truthy)
+      if ('user_id' in req.body) {
+        // user_id was explicitly sent from frontend (can be null or a value)
+        order_user_id = user_id; // Use the value as-is (null or actual ID)
+        console.log(`FILE: order.controller.js | create_order | Using user_id from request body: ${order_user_id}`);
+      } else if (user && user.user_id) {
+        // user_id was NOT sent from frontend, use authenticated user's ID from token
+        order_user_id = user.user_id;
+        console.log(`FILE: order.controller.js | create_order | Using user_id from token: ${order_user_id}`);
+      }
+      // If both are null/undefined, order_user_id remains null (guest order)
+
       const order_data = {
-        user_id: user.user_id,
+        user_id: order_user_id,
         items: items,
         subtotal: subtotal,
         tax: tax || 0,
         shipping: shipping || 0,
         total: total,
         shipping_address: shipping_address,
-        delivery_time: delivery_time || null,
-        delivery_instructions: delivery_instructions || null,
         payment_method: payment_method,
         payment_account_number: payment_account_number || null,
       };
@@ -140,6 +155,40 @@ class order_controller {
         STATUS: "ERROR",
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-01313",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
+
+  async update_order_status(req, res) {
+    try {
+      console.log(`FILE: order.controller.js | update_order_status | Request received for order: ${req.params.order_id}`);
+
+      const { order_status } = req.body;
+
+      if (!order_status) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-01318",
+          ERROR_DESCRIPTION: "Order status is required",
+        });
+      }
+
+      const result = await order_service.update_order_status(req.params.order_id, order_status);
+
+      if (result.STATUS === "ERROR") {
+        const status_code = result.ERROR_FILTER === "NOT_FOUND" ? 404 : 400;
+        return res.status(status_code).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: order.controller.js | update_order_status | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-01319",
         ERROR_DESCRIPTION: error.message || "Internal server error",
       });
     }

@@ -260,6 +260,29 @@ class product_service {
       };
     }
   }
+
+  async get_products_list() {
+    try {
+      console.log(`FILE: product.service.js | get_products_list | Fetching products list`);
+      const products = await product_data_repository.get_products_list();
+      
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: products,
+      };
+    } catch (error) {
+      console.error(`FILE: product.service.js | get_products_list | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00508",
+        ERROR_DESCRIPTION: error.message || "Failed to fetch products list",
+      };
+    }
+  }
 }
 
 module.exports = new product_service();

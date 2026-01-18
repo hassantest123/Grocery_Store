@@ -7,7 +7,7 @@ class payment_controller {
       console.log(`FILE: payment.controller.js | create_payment_intent | Request received`);
 
       const user = req.user; // From auth middleware
-      const { items, shipping_address, delivery_instructions, tax, shipping } = req.body;
+      const { items, shipping_address, tax, shipping } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
@@ -39,7 +39,6 @@ class payment_controller {
         shipping: shipping || 0,
         total: total,
         shipping_address: shipping_address,
-        delivery_instructions: delivery_instructions || null,
         payment_method: "stripe",
       };
 
