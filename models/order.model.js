@@ -70,6 +70,10 @@ const order_schema = new Schema({
     type: String,
     default: null,
   },
+  payment_proof: {
+    type: String,
+    default: null,
+  },
   payment_status: {
     type: String,
     enum: ["pending", "paid", "failed", "refunded"],

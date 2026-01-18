@@ -156,6 +156,28 @@ class user_controller {
       });
     }
   }
+
+  async get_all_users_list(req, res) {
+    try {
+      console.log(`FILE: user.controller.js | get_all_users_list | Request received`);
+
+      const result = await user_service.get_all_users_list();
+
+      if (result.STATUS === "ERROR") {
+        return res.status(400).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: user.controller.js | get_all_users_list | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00602",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
 }
 
 module.exports = new user_controller();

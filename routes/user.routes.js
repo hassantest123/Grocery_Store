@@ -175,5 +175,43 @@ router.get("/profile", auth_middleware.authenticate, user_controller.get_profile
  */
 router.put("/profile", auth_middleware.authenticate, user_controller.update_profile);
 
+/**
+ * @swagger
+ * /api/v1/users/list:
+ *   get:
+ *     summary: Get all users list (name and id only) - Admin only
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Users list retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 STATUS:
+ *                   type: string
+ *                   example: SUCCESSFUL
+ *                 DB_DATA:
+ *                   type: object
+ *                   properties:
+ *                     users:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin only)
+ */
+router.get("/list", auth_middleware.authenticate, auth_middleware.is_admin, user_controller.get_all_users_list);
+
 module.exports = router;
 

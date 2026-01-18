@@ -54,6 +54,20 @@ class user_data_repository {
       throw error;
     }
   }
+
+  async get_all_users_list() {
+    try {
+      console.log(`FILE: user.data_repository.js | get_all_users_list | Fetching all users (name and id only)`);
+      const users = await user_model.find(
+        { is_active: 1 },
+        { _id: 1, name: 1 } // Only return _id and name
+      ).sort({ name: 1 });
+      return users;
+    } catch (error) {
+      console.error(`FILE: user.data_repository.js | get_all_users_list | Error:`, error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new user_data_repository();

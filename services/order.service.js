@@ -64,13 +64,16 @@ class order_service {
         }
       }
 
+      // For non-stripe payments, fetch the order again to ensure all fields are included
+      const saved_order = await order_data_repository.get_order_by_id(order._id);
+
       return {
         STATUS: "SUCCESSFUL",
         ERROR_CODE: "",
         ERROR_FILTER: "",
         ERROR_DESCRIPTION: "",
         DB_DATA: {
-          order: order,
+          order: saved_order || order,
           payment_intent: null,
         },
       };

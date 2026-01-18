@@ -297,6 +297,33 @@ class user_service {
       };
     }
   }
+
+  async get_all_users_list() {
+    try {
+      console.log(`FILE: user.service.js | get_all_users_list | Fetching all users list`);
+      
+      const users = await user_data_repository.get_all_users_list();
+      
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: {
+          users: users,
+        },
+      };
+    } catch (error) {
+      console.error(`FILE: user.service.js | get_all_users_list | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00601",
+        ERROR_DESCRIPTION: error.message || "Failed to fetch users list",
+        DB_DATA: null,
+      };
+    }
+  }
 }
 
 module.exports = new user_service();

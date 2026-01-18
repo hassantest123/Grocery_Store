@@ -17,6 +17,7 @@ const category_model = require("./models/category.model");
 const order_model = require("./models/order.model");
 const payment_model = require("./models/payment.model");
 const notification_settings_model = require("./models/notification_settings.model");
+const comment_model = require("./models/comment.model");
 
 // Import routes
 const user_routes = require("./routes/user.routes");
@@ -29,6 +30,7 @@ const easypaisa_routes = require("./routes/easypaisa.routes");
 const jazzcash_routes = require("./routes/jazzcash.routes");
 const upload_routes = require("./routes/upload.routes");
 const notification_routes = require("./routes/notification.routes");
+const comment_routes = require("./routes/comment.routes");
 const { initializeBullBoard } = require("./admin_board");
 
 const app = express();
@@ -97,6 +99,7 @@ app.use("/api/v1/easypaisa", easypaisa_routes);
 app.use("/api/v1/jazzcash", jazzcash_routes);
 app.use("/api/v1/upload", upload_routes);
 app.use("/api/v1/notifications", notification_routes);
+app.use("/api/v1/comments", comment_routes);
 
 // Serve static files from React app build directory
 const frontendBuildPath = path.join(__dirname, "build");

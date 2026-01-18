@@ -7,7 +7,7 @@ class order_controller {
       console.log(`FILE: order.controller.js | create_order | Request received`);
 
       const user = req.user; // From auth middleware
-      const { items, shipping_address, payment_method, payment_account_number, tax, shipping, user_id } = req.body;
+      const { items, shipping_address, payment_method, payment_account_number, payment_proof, tax, shipping, user_id } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({
@@ -67,6 +67,7 @@ class order_controller {
         shipping_address: shipping_address,
         payment_method: payment_method,
         payment_account_number: payment_account_number || null,
+        payment_proof: payment_proof || null,
       };
 
       const result = await order_service.create_order(order_data);
