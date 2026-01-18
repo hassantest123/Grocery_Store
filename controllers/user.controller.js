@@ -178,6 +178,51 @@ class user_controller {
       });
     }
   }
+
+  async forgot_password(req, res) {
+    try {
+      console.log(`FILE: user.controller.js | forgot_password | Request received`);
+
+      const { email } = req.body;
+
+      // Validation
+      if (!email || !email.trim()) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00702",
+          ERROR_DESCRIPTION: "Email is required",
+        });
+      }
+
+      // Basic email validation
+      const emailRegex = /^\S+@\S+\.\S+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00703",
+          ERROR_DESCRIPTION: "Invalid email format",
+        });
+      }
+
+      const result = await user_service.forgot_password(email.trim().toLowerCase());
+
+      if (result.STATUS === "ERROR") {
+        return res.status(500).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: user.controller.js | forgot_password | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00704",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
 }
 
 module.exports = new user_controller();

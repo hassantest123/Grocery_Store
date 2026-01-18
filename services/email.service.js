@@ -15,12 +15,10 @@ class email_service {
     // Configure email transporter
     // For production, use environment variables for email credentials
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: process.env.EMAIL_PORT || 587,
-      secure: false, // true for 465, false for other ports
+      service: "gmail",
       auth: {
-        user: 'kkami5754049@gmail.com',
-        pass: 'uxsfyhpflytupgfr',
+        user: process.env.EMAIL_USER || 'kkami5754049@gmail.com',
+        pass: process.env.EMAIL_PASS || 'gpllzjydmxxfqfcn',
       },
     });
 

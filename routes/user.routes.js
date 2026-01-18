@@ -213,5 +213,48 @@ router.put("/profile", auth_middleware.authenticate, user_controller.update_prof
  */
 router.get("/list", auth_middleware.authenticate, auth_middleware.is_admin, user_controller.get_all_users_list);
 
+/**
+ * @swagger
+ * /api/v1/users/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Password reset email sent (if email exists)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 STATUS:
+ *                   type: string
+ *                   example: SUCCESSFUL
+ *                 DB_DATA:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: If an account exists with this email, a password reset email has been sent.
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/forgot-password", user_controller.forgot_password);
+
 module.exports = router;
 

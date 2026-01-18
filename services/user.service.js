@@ -1,4 +1,6 @@
 const user_data_repository = require("../data_repositories/user.data_repository");
+const email_service = require("./email.service");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = "A9F7K2M8ZQ4R6X5B";
@@ -95,7 +97,27 @@ class user_service {
       }
 
       // Verify password
-      const is_password_valid = await user.compare_password(password);
+      let is_password_valid = false;
+      
+      // Check if password is stored as plain text (for backward compatibility)
+      // Bcrypt hashes start with $2a$, $2b$, or $2y$
+      if (user.password && !user.password.startsWith('$2')) {
+        // Password is stored as plain text - compare directly
+        if (user.password === password) {
+          is_password_valid = true;
+          // Hash and save the password for future logins
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
+          await user_data_repository.update_user(user._id, {
+            password: hashedPassword,
+          });
+          console.log(`FILE: user.service.js | login_user | Migrated plain text password to hashed for user: ${email}`);
+        }
+      } else {
+        // Password is hashed - use bcrypt compare
+        is_password_valid = await user.compare_password(password);
+      }
+
       if (!is_password_valid) {
         return {
           STATUS: "ERROR",
@@ -321,6 +343,79 @@ class user_service {
         ERROR_CODE: "VTAPP-00601",
         ERROR_DESCRIPTION: error.message || "Failed to fetch users list",
         DB_DATA: null,
+      };
+    }
+  }
+
+  async forgot_password(email) {
+    try {
+      console.log(`FILE: user.service.js | forgot_password | Processing password reset for: ${email}`);
+
+      // Check if user exists
+      const user = await user_data_repository.get_user_by_email(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return {
+          STATUS: "SUCCESSFUL",
+          ERROR_CODE: "",
+          ERROR_FILTER: "",
+          ERROR_DESCRIPTION: "",
+          DB_DATA: {
+            message: "New updated password sent on your email, please check email and log in with new password",
+          },
+        };
+      }
+
+      // Generate random password (8 digits)
+      const randomPassword = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+
+      // Hash the password manually (since findByIdAndUpdate bypasses pre-save hook)
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      // Update user password with hashed password
+      await user_data_repository.update_user(user._id, {
+        password: hashedPassword,
+      });
+
+      // Send email with new password
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+          <h2 style="margin: 0 0 10px;">Reset your password</h2>
+          <p>We received a request to reset your password for <b>Click Mart</b>.</p>
+          <p style="margin: 16px 0;">
+            Here is your new password: <b>${randomPassword}</b>
+          </p>
+          <p style="margin-top: 20px; color: #666;">
+            Please login with this password and change it to a secure password of your choice.
+          </p>
+        </div>
+      `;
+
+      await email_service.sendEmail({
+        to: email,
+        subject: 'Click Mart Business - Password Reset',
+        html: emailHtml,
+      });
+
+      console.log(`FILE: user.service.js | forgot_password | Password reset email sent to: ${email}`);
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: {
+          message: "New updated password sent on your email, please check email and log in with new password",
+        },
+      };
+    } catch (error) {
+      console.error(`FILE: user.service.js | forgot_password | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00701",
+        ERROR_DESCRIPTION: error.message || "Failed to process password reset",
       };
     }
   }
