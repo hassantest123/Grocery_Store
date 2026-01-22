@@ -58,13 +58,14 @@ async function get_daily_best_sells() {
   try {
     console.log(`FILE: home.controller.js | get_daily_best_sells | Fetching daily best selling products`);
     
-    const TARGET_COUNT = 4; // Always return 4 products
+    const TARGET_COUNT = 4; // Target to return up to 4 products
     const product_model = require("../models/product.model");
     
     // Get today's best selling product IDs
     const best_selling_product_ids = await order_data_repository.get_todays_best_selling_products(TARGET_COUNT);
     
     let daily_best_sells = [];
+    const seen_product_ids = new Set(); // Track seen product IDs to prevent duplicates
     
     // Fetch product details for best selling products
     if (best_selling_product_ids.length > 0) {
@@ -85,25 +86,23 @@ async function get_daily_best_sells() {
           product_map[product._id.toString()] = product;
         });
         
-        // Add products in the same order as sales ranking
+        // Add products in the same order as sales ranking, ensuring no duplicates
         best_selling_product_ids.forEach(product_id => {
           const product = product_map[product_id];
-          if (product) {
+          if (product && !seen_product_ids.has(product_id)) {
             daily_best_sells.push(product);
+            seen_product_ids.add(product_id);
           }
         });
       }
     }
     
-    // If we have less than 4 products, fill with other active products
+    // If we have less than TARGET_COUNT products, fill with other active products
     if (daily_best_sells.length < TARGET_COUNT) {
       const remaining_count = TARGET_COUNT - daily_best_sells.length;
       
       // Get IDs we already have to exclude them
-      const existing_ids = daily_best_sells.map(p => p._id.toString());
-      const exclude_ids = existing_ids.length > 0 
-        ? existing_ids.map(id => new mongoose.Types.ObjectId(id))
-        : [];
+      const exclude_ids = Array.from(seen_product_ids).map(id => new mongoose.Types.ObjectId(id));
       
       // Build query to exclude already included products
       const additional_query = { is_active: 1 };
@@ -118,13 +117,21 @@ async function get_daily_best_sells() {
         .sort({ created_at: -1 }) // Sort by newest
         .limit(remaining_count);
       
-      daily_best_sells = [...daily_best_sells, ...additional_products];
+      // Add additional products, ensuring no duplicates
+      additional_products.forEach(product => {
+        const product_id = product._id.toString();
+        if (!seen_product_ids.has(product_id)) {
+          daily_best_sells.push(product);
+          seen_product_ids.add(product_id);
+        }
+      });
     }
     
-    // Ensure we return exactly 4 products (or less if not enough products exist)
+    // Return products (up to TARGET_COUNT, but only what's available)
+    // No need to force exactly 4 - return what we have
     const final_products = daily_best_sells.slice(0, TARGET_COUNT);
     
-    console.log(`FILE: home.controller.js | get_daily_best_sells | Returning ${final_products.length} daily best selling products`);
+    console.log(`FILE: home.controller.js | get_daily_best_sells | Returning ${final_products.length} unique daily best selling products`);
     
     return final_products;
   } catch (error) {
