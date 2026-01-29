@@ -7,13 +7,35 @@ const auth_middleware = require("../middlewares/auth.middleware");
  * @swagger
  * components:
  *   schemas:
+ *     AdditionalItem:
+ *       type: object
+ *       required:
+ *         - name
+ *         - image
+ *         - price
+ *       properties:
+ *         name:
+ *           type: string
+ *           example: Matching Belt
+ *         image:
+ *           type: string
+ *           example: https://example.com/item-image.jpg
+ *         price:
+ *           type: number
+ *           example: 500
+ *         original_price:
+ *           type: number
+ *           example: 700
+ *         stock_quantity:
+ *           type: number
+ *           example: 5
  *     Product:
  *       type: object
  *       required:
  *         - name
  *         - price
- *         - image
- *         - category
+ *         - main_image
+ *         - category_id
  *       properties:
  *         name:
  *           type: string
@@ -30,9 +52,24 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *         image:
  *           type: string
  *           example: https://example.com/image.jpg
+ *           description: Deprecated - use main_image instead (kept for backward compatibility)
+ *         main_image:
+ *           type: string
+ *           example: https://example.com/main-image.jpg
+ *           description: Main product image (required)
  *         category:
  *           type: string
  *           example: Snack & Munchies
+ *           description: Deprecated - use category_id instead
+ *         category_id:
+ *           type: string
+ *           example: 507f1f77bcf86cd799439011
+ *           description: MongoDB ObjectId of the category
+ *         additional_items:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/AdditionalItem'
+ *           description: Additional items that can be added to the product
  *         label:
  *           type: string
  *           enum: [Sale, Hot, New]
@@ -51,6 +88,9 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *         stock_quantity:
  *           type: number
  *           example: 100
+ *         unit:
+ *           type: string
+ *           example: 1kg
  */
 
 /**
@@ -269,6 +309,48 @@ router.put("/:product_id", auth_middleware.authenticate, auth_middleware.is_admi
  *         description: Admin access required
  */
 router.delete("/:product_id", auth_middleware.authenticate, auth_middleware.is_admin, product_controller.delete_product);
+
+/**
+ * @swagger
+ * /api/v1/products/{product_id}/rate:
+ *   post:
+ *     summary: Rate a product (Authenticated users only)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: product_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 4
+ *                 description: Rating value (1-5 stars)
+ *     responses:
+ *       200:
+ *         description: Product rated successfully
+ *       400:
+ *         description: Validation error or user has already rated
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product not found
+ */
+router.post("/:product_id/rate", auth_middleware.authenticate, product_controller.rate_product);
 
 module.exports = router;
 

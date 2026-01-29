@@ -9,6 +9,21 @@ class product_service {
     try {
       console.log(`FILE: product.service.js | create_product | Creating product: ${product_data.name}`);
 
+      // Backward compatibility: if image is provided but main_image is not, use image as main_image
+      if (product_data.image && !product_data.main_image) {
+        product_data.main_image = product_data.image;
+      }
+
+      // Validate main_image is provided
+      if (!product_data.main_image) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00405",
+          ERROR_DESCRIPTION: "Main image is required",
+        };
+      }
+
       // If category is provided as name, find and set category_id
       if (product_data.category && !product_data.category_id) {
         const category_model = require("../models/category.model");
@@ -18,10 +33,31 @@ class product_service {
         }
       }
 
+      // Validate category_id is provided
+      if (!product_data.category_id) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00406",
+          ERROR_DESCRIPTION: "Category ID is required",
+        };
+      }
+
       // Calculate discount percentage if original_price is provided
       if (product_data.original_price && product_data.price < product_data.original_price) {
         const discount = ((product_data.original_price - product_data.price) / product_data.original_price) * 100;
         product_data.discount_percentage = Math.round(discount);
+      }
+
+      // Process additional_items: calculate discount for each item if original_price is provided
+      if (product_data.additional_items && Array.isArray(product_data.additional_items)) {
+        product_data.additional_items = product_data.additional_items.map((item) => {
+          if (item.original_price && item.price < item.original_price) {
+            const itemDiscount = ((item.original_price - item.price) / item.original_price) * 100;
+            item.discount_percentage = Math.round(itemDiscount);
+          }
+          return item;
+        });
       }
 
       const new_product = await product_data_repository.create_product(product_data);
@@ -120,6 +156,7 @@ class product_service {
           { name: { $regex: query_params.search, $options: "i" } },
           { description: { $regex: query_params.search, $options: "i" } },
         ];
+        console.log(`FILE: product.service.js | get_all_products | Searching in name and description for: "${query_params.search}"`);
       }
 
       // Build sort
@@ -148,7 +185,8 @@ class product_service {
       const products = await product_data_repository.get_all_products(filters, sort, skip, limit);
       const total_count = await product_data_repository.count_products(filters);
 
-      console.log(`FILE: product.service.js | get_all_products | Returning ${products.length} products (total: ${total_count}) filtered by category_id: ${filters.category_id || 'N/A'}`);
+      console.log(`FILE: product.service.js | get_all_products | Returning ${products.length} products (total: ${total_count})`);
+      console.log(`FILE: product.service.js | get_all_products | Filters applied - category_id: ${filters.category_id || 'N/A'}, search: ${query_params.search || 'N/A'}`);
 
       return {
         STATUS: "SUCCESSFUL",
@@ -280,6 +318,118 @@ class product_service {
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-00508",
         ERROR_DESCRIPTION: error.message || "Failed to fetch products list",
+      };
+    }
+  }
+
+  async rate_product(product_id, user_id, rating_value) {
+    try {
+      console.log(`FILE: product.service.js | rate_product | Rating product ${product_id} by user ${user_id} with rating ${rating_value}`);
+
+      // Validate rating value
+      if (!rating_value || rating_value < 1 || rating_value > 5) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00510",
+          ERROR_DESCRIPTION: "Rating must be between 1 and 5",
+        };
+      }
+
+      // Get the product
+      const product = await product_data_repository.get_product_by_id(product_id);
+      if (!product) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-00511",
+          ERROR_DESCRIPTION: "Product not found",
+        };
+      }
+
+      // Check if user has already rated this product
+      const mongoose = require("mongoose");
+      const userObjectId = new mongoose.Types.ObjectId(user_id);
+      const existingRating = product.ratings?.find(
+        (r) => r.user_id.toString() === userObjectId.toString()
+      );
+
+      let updatedProduct;
+      const moment = require("moment");
+
+      if (existingRating) {
+        // User has already rated - update existing rating
+        console.log(`FILE: product.service.js | rate_product | User has already rated, updating existing rating`);
+        
+        // Update the existing rating
+        const updatedRatings = product.ratings.map((r) => {
+          if (r.user_id.toString() === userObjectId.toString()) {
+            return {
+              user_id: r.user_id,
+              rating: rating_value,
+              created_at: r.created_at, // Keep original created_at
+            };
+          }
+          return r;
+        });
+
+        // Calculate new average rating
+        const totalRating = updatedRatings.reduce((sum, r) => sum + r.rating, 0);
+        const averageRating = totalRating / updatedRatings.length;
+
+        updatedProduct = await product_data_repository.update_product(product_id, {
+          ratings: updatedRatings,
+          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+          reviews_count: updatedRatings.length,
+          updated_at: moment().unix(),
+        });
+      } else {
+        // User hasn't rated yet - add new rating
+        console.log(`FILE: product.service.js | rate_product | Adding new rating`);
+        
+        const newRating = {
+          user_id: userObjectId,
+          rating: rating_value,
+          created_at: moment().unix(),
+        };
+
+        const updatedRatings = [...(product.ratings || []), newRating];
+
+        // Calculate new average rating
+        const totalRating = updatedRatings.reduce((sum, r) => sum + r.rating, 0);
+        const averageRating = totalRating / updatedRatings.length;
+
+        updatedProduct = await product_data_repository.update_product(product_id, {
+          ratings: updatedRatings,
+          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+          reviews_count: updatedRatings.length,
+          updated_at: moment().unix(),
+        });
+      }
+
+      // Get user's rating for this product
+      const userRating = updatedProduct.ratings?.find(
+        (r) => r.user_id.toString() === userObjectId.toString()
+      );
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: {
+          product: updatedProduct,
+          user_rating: userRating?.rating || null,
+          already_rated: !!existingRating,
+        },
+      };
+    } catch (error) {
+      console.error(`FILE: product.service.js | rate_product | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00512",
+        ERROR_DESCRIPTION: error.message || "Failed to rate product",
       };
     }
   }

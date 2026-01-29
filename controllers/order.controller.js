@@ -6,7 +6,7 @@ class order_controller {
     try {
       console.log(`FILE: order.controller.js | create_order | Request received`);
 
-      const user = req.user; // From auth middleware
+      const user = req.user; // From auth middleware (can be null for guest orders)
       const { items, shipping_address, payment_method, payment_account_number, payment_proof, tax, shipping, user_id } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
@@ -18,13 +18,57 @@ class order_controller {
         });
       }
 
-      if (!shipping_address || !shipping_address.name || !shipping_address.email || !shipping_address.address) {
+      // Determine if this is a guest order (user not logged in)
+      const is_guest_order = !user || !user.user_id;
+
+      // Validation for shipping address
+      if (!shipping_address) {
         return res.status(400).json({
           STATUS: "ERROR",
           ERROR_FILTER: "INVALID_REQUEST",
           ERROR_CODE: "VTAPP-01307",
-          ERROR_DESCRIPTION: "Shipping address is required with name, email, and address",
+          ERROR_DESCRIPTION: "Shipping address is required",
         });
+      }
+
+      // For guest orders, require name, phone, and address
+      if (is_guest_order) {
+        if (!shipping_address.name || !shipping_address.name.trim()) {
+          return res.status(400).json({
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-01320",
+            ERROR_DESCRIPTION: "Name is required for guest orders",
+          });
+        }
+
+        if (!shipping_address.phone || !shipping_address.phone.trim()) {
+          return res.status(400).json({
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-01321",
+            ERROR_DESCRIPTION: "Phone number is required for guest orders",
+          });
+        }
+
+        if (!shipping_address.address || !shipping_address.address.trim()) {
+          return res.status(400).json({
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-01322",
+            ERROR_DESCRIPTION: "Address is required for guest orders",
+          });
+        }
+      } else {
+        // For logged-in users, email is required (for backward compatibility)
+        if (!shipping_address.email || !shipping_address.email.trim()) {
+          return res.status(400).json({
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-01323",
+            ERROR_DESCRIPTION: "Email is required",
+          });
+        }
       }
 
       if (!payment_method) {
@@ -43,6 +87,7 @@ class order_controller {
       // Determine user_id:
       // 1. If user_id is explicitly provided in request body (including null), use it
       // 2. If user_id is NOT provided in request body, use authenticated user's ID from token
+      // 3. If no user is logged in and user_id not provided, use null (guest order)
       let order_user_id = null;
       
       // Check if user_id key exists in request body (not just if it's truthy)
@@ -54,8 +99,10 @@ class order_controller {
         // user_id was NOT sent from frontend, use authenticated user's ID from token
         order_user_id = user.user_id;
         console.log(`FILE: order.controller.js | create_order | Using user_id from token: ${order_user_id}`);
+      } else {
+        // Guest order - user_id remains null
+        console.log(`FILE: order.controller.js | create_order | Guest order - user_id is null`);
       }
-      // If both are null/undefined, order_user_id remains null (guest order)
 
       const order_data = {
         user_id: order_user_id,

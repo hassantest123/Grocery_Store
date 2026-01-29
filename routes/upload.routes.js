@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const upload_controller = require("../controllers/upload.controller");
-const { upload_single_image } = require("../middlewares/upload.middleware");
+const { upload_single_image, upload_multiple_images } = require("../middlewares/upload.middleware");
 const auth_middleware = require("../middlewares/auth.middleware");
 
 /**
@@ -31,7 +31,7 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *         name: folder
  *         type: string
  *         required: false
- *         description: Folder name in Cloudinary (default: grocery_store)
+ *         description: "Folder name in Cloudinary (default: grocery_store)"
  *     responses:
  *       200:
  *         description: Image uploaded successfully
@@ -45,6 +45,59 @@ router.post(
   auth_middleware.authenticate,
   upload_single_image,
   upload_controller.upload_image
+);
+
+/**
+ * @swagger
+ * /api/v1/upload/images:
+ *   post:
+ *     summary: Upload multiple images to Cloudinary
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     consumes:
+ *       - multipart/form-data
+ *     parameters:
+ *       - in: formData
+ *         name: images
+ *         type: file
+ *         required: true
+ *         description: Multiple image files to upload (max 10)
+ *       - in: formData
+ *         name: folder
+ *         type: string
+ *         required: false
+ *         description: "Folder name in Cloudinary (default: grocery_store)"
+ *     responses:
+ *       200:
+ *         description: Images uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 STATUS:
+ *                   type: string
+ *                   example: SUCCESSFUL
+ *                 DB_DATA:
+ *                   type: object
+ *                   properties:
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     count:
+ *                       type: number
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.post(
+  "/images",
+  auth_middleware.authenticate,
+  upload_multiple_images,
+  upload_controller.upload_multiple_images
 );
 
 /**

@@ -33,8 +33,50 @@ const product_schema = new Schema({
   },
   image: {
     type: String,
+    required: false, // Keep for backward compatibility, will be deprecated
+    trim: true,
+  },
+  main_image: {
+    type: String,
     required: true,
     trim: true,
+  },
+  additional_items: {
+    type: [
+      {
+        name: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        image: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        price: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        original_price: {
+          type: Number,
+          min: 0,
+          default: null,
+        },
+        descriptions: {
+          type: String,
+          trim: true,
+          default: null,
+        },
+        stock_quantity: {
+          type: Number,
+          min: 0,
+          default: 0,
+        },
+      },
+    ],
+    default: [],
   },
   category: {
     type: String,
@@ -68,10 +110,42 @@ const product_schema = new Schema({
     min: 0,
     default: 0,
   },
+  ratings: {
+    type: [
+      {
+        user_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "user",
+          required: true,
+        },
+        rating: {
+          type: Number,
+          min: 1,
+          max: 5,
+          required: true,
+        },
+        created_at: {
+          type: Number,
+          default: () => moment().unix(),
+        },
+      },
+    ],
+    default: [],
+  },
+  descriptions: {
+    type: String,
+    trim: true,
+    default: null,
+  },
   stock_quantity: {
     type: Number,
     min: 0,
     default: 0,
+  },
+  unit: {
+    type: String,
+    trim: true,
+    default: "1kg",
   },
   is_active: {
     type: Number,

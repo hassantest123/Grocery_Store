@@ -20,7 +20,9 @@ class product_data_repository {
   async get_product_by_id(product_id) {
     try {
       console.log(`FILE: product.data_repository.js | get_product_by_id | Fetching product: ${product_id}`);
-      const product = await product_model.findById(product_id).populate('category_id', 'name image');
+      const product = await product_model.findById(product_id)
+        .populate('category_id', 'name image')
+        .populate('ratings.user_id', 'name email');
       return product;
     } catch (error) {
       console.error(`FILE: product.data_repository.js | get_product_by_id | Error:`, error);

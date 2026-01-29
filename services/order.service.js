@@ -200,9 +200,18 @@ class order_service {
         };
       }
 
-      // If status is being changed to "completed", deduct stock from products
+      // Prepare update data
+      const update_data = {
+        order_status: new_status,
+      };
+
+      // If status is being changed to "completed", deduct stock from products and update payment status
       if (new_status === "completed" && order.order_status !== "completed") {
         console.log(`FILE: order.service.js | update_order_status | Deducting stock for completed order`);
+        
+        // Update payment_status to "paid" when order is marked as completed
+        update_data.payment_status = "paid";
+        console.log(`FILE: order.service.js | update_order_status | Updating payment_status to "paid" for completed order`);
         
         // Deduct stock for each item in the order
         for (const item of order.items) {
@@ -235,10 +244,8 @@ class order_service {
         }
       }
 
-      // Update order status
-      const updated_order = await order_data_repository.update_order(order_id, {
-        order_status: new_status,
-      });
+      // Update order status (and payment_status if completed)
+      const updated_order = await order_data_repository.update_order(order_id, update_data);
 
       if (!updated_order) {
         return {

@@ -71,6 +71,40 @@ class auth_middleware {
       });
     }
   }
+
+  // Optional authentication - doesn't fail if no token, but sets req.user if token is valid
+  async authenticate_optional(req, res, next) {
+    try {
+      console.log(`FILE: auth.middleware.js | authenticate_optional | Checking optional authentication`);
+
+      const auth_header = req.headers.authorization;
+
+      if (!auth_header || !auth_header.startsWith("Bearer ")) {
+        // No token provided - continue without user (guest order)
+        req.user = null;
+        return next();
+      }
+
+      const token = auth_header.substring(7); // Remove "Bearer " prefix
+
+      const verification_result = user_service.verify_token(token);
+
+      if (verification_result.STATUS === "ERROR") {
+        // Invalid token - continue without user (guest order)
+        req.user = null;
+        return next();
+      }
+
+      // Valid token - attach user info to request
+      req.user = verification_result.DB_DATA;
+      next();
+    } catch (error) {
+      console.error(`FILE: auth.middleware.js | authenticate_optional | Error:`, error);
+      // On error, continue without user (guest order)
+      req.user = null;
+      next();
+    }
+  }
 }
 
 module.exports = new auth_middleware();

@@ -2,6 +2,8 @@ const user_data_repository = require("../data_repositories/user.data_repository"
 const email_service = require("./email.service");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+const moment = require("moment");
 
 const JWT_SECRET = "A9F7K2M8ZQ4R6X5B";
 const JWT_EXPIRES_IN = "7d";
@@ -13,31 +15,66 @@ class user_service {
 
   async register_user(user_data) {
     try {
-      console.log(`FILE: user.service.js | register_user | Registering user: ${user_data.email}`);
+      console.log(`FILE: user.service.js | register_user | Registering user: ${user_data.name || user_data.phone || 'no phone'}`);
 
-      // Check if user already exists
-      const existing_user = await user_data_repository.get_user_by_email(user_data.email);
-      if (existing_user) {
+      // Validate required fields
+      if (!user_data.name || !user_data.phone || !user_data.address) {
         return {
           STATUS: "ERROR",
-          ERROR_FILTER: "USER_END_VIOLATION",
+          ERROR_FILTER: "INVALID_REQUEST",
           ERROR_CODE: "VTAPP-00101",
-          ERROR_DESCRIPTION: "User with this email already exists",
+          ERROR_DESCRIPTION: "Name, phone, and address are required",
         };
       }
 
-      // Create user
+      // Validate phone format (Pakistani format: 11 digits starting with 03)
+      const phone_regex = /^03\d{9}$/;
+      const normalized_phone = user_data.phone.trim().replace(/[\s-]/g, '');
+      if (!phone_regex.test(normalized_phone)) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00103",
+          ERROR_DESCRIPTION: "Phone number must be in Pakistani format: 11 digits starting with 03 (e.g., 030xxxxxxxxxxx)",
+        };
+      }
+
+      // Check if phone number already exists
+      const existing_user_by_phone = await user_data_repository.get_user_by_phone(normalized_phone);
+      if (existing_user_by_phone) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "USER_END_VIOLATION",
+          ERROR_CODE: "VTAPP-00104",
+          ERROR_DESCRIPTION: "User with this phone number already exists",
+        };
+      }
+
+      // If email is provided, check if user already exists with that email
+      if (user_data.email) {
+        const existing_user_by_email = await user_data_repository.get_user_by_email(user_data.email);
+        if (existing_user_by_email) {
+          return {
+            STATUS: "ERROR",
+            ERROR_FILTER: "USER_END_VIOLATION",
+            ERROR_CODE: "VTAPP-00102",
+            ERROR_DESCRIPTION: "User with this email already exists",
+          };
+        }
+      }
+
+      // Create user (password is optional, email is optional)
       const new_user = await user_data_repository.create_user({
         name: user_data.name,
-        email: user_data.email,
-        password: user_data.password,
-        phone: user_data.phone || null,
-        address: user_data.address || null,
+        email: user_data.email || null,
+        password: user_data.password || null, // Password is optional
+        phone: normalized_phone, // Use normalized phone
+        address: user_data.address,
         role: user_data.role || "user",
       });
 
-      // Generate token
-      const token = this.generate_token(new_user._id, new_user.email, new_user.role);
+      // Generate token (email can be null, use empty string or phone as fallback)
+      const token = this.generate_token(new_user._id, new_user.email || new_user.phone || '', new_user.role);
 
       // Remove password from response
       const user_response = {
@@ -71,18 +108,40 @@ class user_service {
     }
   }
 
-  async login_user(email, password) {
+  async login_user(phone) {
     try {
-      console.log(`FILE: user.service.js | login_user | Logging in user: ${email}`);
+      console.log(`FILE: user.service.js | login_user | Logging in user: ${phone}`);
 
-      // Get user by email
-      const user = await user_data_repository.get_user_by_email(email);
+      // Validate phone is provided
+      if (!phone || !phone.trim()) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00201",
+          ERROR_DESCRIPTION: "Phone number is required",
+        };
+      }
+
+      // Validate phone format (Pakistani format: 11 digits starting with 03)
+      const phone_regex = /^03\d{9}$/;
+      const normalized_phone = phone.trim().replace(/[\s-]/g, '');
+      if (!phone_regex.test(normalized_phone)) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00202",
+          ERROR_DESCRIPTION: "Phone number must be in Pakistani format: 11 digits starting with 03 (e.g., 030xxxxxxxxxxx)",
+        };
+      }
+
+      // Get user by phone
+      const user = await user_data_repository.get_user_by_phone(normalized_phone);
       if (!user) {
         return {
           STATUS: "ERROR",
           ERROR_FILTER: "USER_END_VIOLATION",
-          ERROR_CODE: "VTAPP-00201",
-          ERROR_DESCRIPTION: "Invalid email or password",
+          ERROR_CODE: "VTAPP-00203",
+          ERROR_DESCRIPTION: "User with this phone number not found",
         };
       }
 
@@ -91,44 +150,13 @@ class user_service {
         return {
           STATUS: "ERROR",
           ERROR_FILTER: "USER_END_VIOLATION",
-          ERROR_CODE: "VTAPP-00202",
+          ERROR_CODE: "VTAPP-00204",
           ERROR_DESCRIPTION: "Your account has been deactivated",
         };
       }
 
-      // Verify password
-      let is_password_valid = false;
-      
-      // Check if password is stored as plain text (for backward compatibility)
-      // Bcrypt hashes start with $2a$, $2b$, or $2y$
-      if (user.password && !user.password.startsWith('$2')) {
-        // Password is stored as plain text - compare directly
-        if (user.password === password) {
-          is_password_valid = true;
-          // Hash and save the password for future logins
-          const salt = await bcrypt.genSalt(10);
-          const hashedPassword = await bcrypt.hash(password, salt);
-          await user_data_repository.update_user(user._id, {
-            password: hashedPassword,
-          });
-          console.log(`FILE: user.service.js | login_user | Migrated plain text password to hashed for user: ${email}`);
-        }
-      } else {
-        // Password is hashed - use bcrypt compare
-        is_password_valid = await user.compare_password(password);
-      }
-
-      if (!is_password_valid) {
-        return {
-          STATUS: "ERROR",
-          ERROR_FILTER: "USER_END_VIOLATION",
-          ERROR_CODE: "VTAPP-00203",
-          ERROR_DESCRIPTION: "Invalid email or password",
-        };
-      }
-
-      // Generate token
-      const token = this.generate_token(user._id, user.email, user.role);
+      // Generate token (no password verification needed)
+      const token = this.generate_token(user._id, user.phone || user.email || '', user.role);
 
       // Remove password from response
       const user_response = {
@@ -162,11 +190,11 @@ class user_service {
     }
   }
 
-  generate_token(user_id, email, role) {
+  generate_token(user_id, email_or_identifier, role) {
     try {
       const payload = {
         user_id: user_id.toString(),
-        email: email,
+        email: email_or_identifier || '', // Can be email or phone if email not provided
         role: role,
       };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -416,6 +444,154 @@ class user_service {
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-00701",
         ERROR_DESCRIPTION: error.message || "Failed to process password reset",
+      };
+    }
+  }
+
+  async add_to_favorites(user_id, product_id) {
+    try {
+      console.log(`FILE: user.service.js | add_to_favorites | Adding product ${product_id} to favorites for user ${user_id}`);
+
+      const user = await user_data_repository.get_user_by_id(user_id);
+      if (!user) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-00404",
+          ERROR_DESCRIPTION: "User not found",
+        };
+      }
+
+      // Check if product is already in favorites
+      const productObjectId = new mongoose.Types.ObjectId(product_id);
+      if (user.favorites && user.favorites.some(fav => fav.toString() === productObjectId.toString())) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00405",
+          ERROR_DESCRIPTION: "Product is already in favorites",
+        };
+      }
+
+      // Verify product exists
+      const product_model = require("../models/product.model");
+      const product = await product_model.findById(product_id);
+      if (!product) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-00517",
+          ERROR_DESCRIPTION: "Product not found",
+        };
+      }
+
+      // Add product to favorites using $addToSet operator
+      const user_model = require("../models/user.model");
+      const updated_user = await user_model.findByIdAndUpdate(
+        user_id,
+        { 
+          $addToSet: { favorites: productObjectId },
+          $set: { updated_at: moment().unix() }
+        },
+        { new: true, runValidators: true }
+      );
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: updated_user,
+      };
+    } catch (error) {
+      console.error(`FILE: user.service.js | add_to_favorites | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00406",
+        ERROR_DESCRIPTION: error.message || "Failed to add product to favorites",
+      };
+    }
+  }
+
+  async remove_from_favorites(user_id, product_id) {
+    try {
+      console.log(`FILE: user.service.js | remove_from_favorites | Removing product ${product_id} from favorites for user ${user_id}`);
+
+      const user = await user_data_repository.get_user_by_id(user_id);
+      if (!user) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-00407",
+          ERROR_DESCRIPTION: "User not found",
+        };
+      }
+
+      // Remove product from favorites using $pull operator
+      const productObjectId = new mongoose.Types.ObjectId(product_id);
+      const user_model = require("../models/user.model");
+      const updated_user = await user_model.findByIdAndUpdate(
+        user_id,
+        { 
+          $pull: { favorites: productObjectId },
+          $set: { updated_at: moment().unix() }
+        },
+        { new: true, runValidators: true }
+      );
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: updated_user,
+      };
+    } catch (error) {
+      console.error(`FILE: user.service.js | remove_from_favorites | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00408",
+        ERROR_DESCRIPTION: error.message || "Failed to remove product from favorites",
+      };
+    }
+  }
+
+  async get_favorites(user_id) {
+    try {
+      console.log(`FILE: user.service.js | get_favorites | Fetching favorites for user ${user_id}`);
+
+      const user = await user_data_repository.get_user_by_id(user_id);
+      if (!user) {
+        return {
+          STATUS: "ERROR",
+          ERROR_FILTER: "NOT_FOUND",
+          ERROR_CODE: "VTAPP-00409",
+          ERROR_DESCRIPTION: "User not found",
+        };
+      }
+
+      // Populate favorites with product details
+      const user_model = require("../models/user.model");
+      const user_with_favorites = await user_model.findById(user_id).populate('favorites');
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: {
+          favorites: user_with_favorites.favorites || [],
+        },
+      };
+    } catch (error) {
+      console.error(`FILE: user.service.js | get_favorites | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00410",
+        ERROR_DESCRIPTION: error.message || "Failed to fetch favorites",
       };
     }
   }

@@ -5,32 +5,44 @@ class user_controller {
     try {
       console.log(`FILE: user.controller.js | register | Request received`);
 
-      const { name, email, password, phone, address } = req.body;
+      const { name, email, phone, address } = req.body;
 
-      // Validation
-      if (!name || !email || !password) {
+      // Validation - name, phone, and address are required, email is optional
+      if (!name || !phone || !address) {
         return res.status(400).json({
           STATUS: "ERROR",
           ERROR_FILTER: "INVALID_REQUEST",
           ERROR_CODE: "VTAPP-00103",
-          ERROR_DESCRIPTION: "Name, email, and password are required",
+          ERROR_DESCRIPTION: "Name, phone, and address are required",
         });
       }
 
-      if (password.length < 6) {
+      // Validate phone format (Pakistani format: 11 digits starting with 03)
+      const phone_regex = /^03\d{9}$/;
+      const normalized_phone = phone.trim().replace(/[\s-]/g, '');
+      if (!phone_regex.test(normalized_phone)) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00105",
+          ERROR_DESCRIPTION: "Phone number must be in Pakistani format: 11 digits starting with 03 (e.g., 030xxxxxxxxxxx)",
+        });
+      }
+
+      // Validate email format if provided
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) {
         return res.status(400).json({
           STATUS: "ERROR",
           ERROR_FILTER: "INVALID_REQUEST",
           ERROR_CODE: "VTAPP-00104",
-          ERROR_DESCRIPTION: "Password must be at least 6 characters long",
+          ERROR_DESCRIPTION: "Invalid email format",
         });
       }
 
       const result = await user_service.register_user({
         name,
-        email,
-        password,
-        phone,
+        email: email || null, // Email is optional
+        phone: normalized_phone, // Use normalized phone
         address,
       });
 
@@ -54,19 +66,31 @@ class user_controller {
     try {
       console.log(`FILE: user.controller.js | login | Request received`);
 
-      const { email, password } = req.body;
+      const { phone } = req.body;
 
-      // Validation
-      if (!email || !password) {
+      // Validation - only phone is required
+      if (!phone || !phone.trim()) {
         return res.status(400).json({
           STATUS: "ERROR",
           ERROR_FILTER: "INVALID_REQUEST",
           ERROR_CODE: "VTAPP-00205",
-          ERROR_DESCRIPTION: "Email and password are required",
+          ERROR_DESCRIPTION: "Phone number is required",
         });
       }
 
-      const result = await user_service.login_user(email, password);
+      // Validate phone format (Pakistani format: 11 digits starting with 03)
+      const phone_regex = /^03\d{9}$/;
+      const normalized_phone = phone.trim().replace(/[\s-]/g, '');
+      if (!phone_regex.test(normalized_phone)) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00206",
+          ERROR_DESCRIPTION: "Phone number must be in Pakistani format: 11 digits starting with 03 (e.g., 030xxxxxxxxxxx)",
+        });
+      }
+
+      const result = await user_service.login_user(normalized_phone);
 
       if (result.STATUS === "ERROR") {
         return res.status(400).json(result);
@@ -174,6 +198,130 @@ class user_controller {
         STATUS: "ERROR",
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-00602",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
+
+  async add_to_favorites(req, res) {
+    try {
+      console.log(`FILE: user.controller.js | add_to_favorites | Request received`);
+
+      const user = req.user; // From auth middleware
+      const user_id = user?.user_id || user?._id || user?.id;
+      const { product_id } = req.body;
+
+      if (!user_id) {
+        return res.status(401).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "AUTHENTICATION_REQUIRED",
+          ERROR_CODE: "VTAPP-00411",
+          ERROR_DESCRIPTION: "Authentication required",
+        });
+      }
+
+      if (!product_id) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00412",
+          ERROR_DESCRIPTION: "Product ID is required",
+        });
+      }
+
+      const result = await user_service.add_to_favorites(user_id, product_id);
+
+      if (result.STATUS === "ERROR") {
+        const status_code = result.ERROR_FILTER === "NOT_FOUND" ? 404 : 400;
+        return res.status(status_code).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: user.controller.js | add_to_favorites | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00413",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
+
+  async remove_from_favorites(req, res) {
+    try {
+      console.log(`FILE: user.controller.js | remove_from_favorites | Request received`);
+
+      const user = req.user; // From auth middleware
+      const user_id = user?.user_id || user?._id || user?.id;
+      const { product_id } = req.params;
+
+      if (!user_id) {
+        return res.status(401).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "AUTHENTICATION_REQUIRED",
+          ERROR_CODE: "VTAPP-00414",
+          ERROR_DESCRIPTION: "Authentication required",
+        });
+      }
+
+      if (!product_id) {
+        return res.status(400).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "INVALID_REQUEST",
+          ERROR_CODE: "VTAPP-00415",
+          ERROR_DESCRIPTION: "Product ID is required",
+        });
+      }
+
+      const result = await user_service.remove_from_favorites(user_id, product_id);
+
+      if (result.STATUS === "ERROR") {
+        const status_code = result.ERROR_FILTER === "NOT_FOUND" ? 404 : 400;
+        return res.status(status_code).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: user.controller.js | remove_from_favorites | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00416",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
+
+  async get_favorites(req, res) {
+    try {
+      console.log(`FILE: user.controller.js | get_favorites | Request received`);
+
+      const user = req.user; // From auth middleware
+      const user_id = user?.user_id || user?._id || user?.id;
+
+      if (!user_id) {
+        return res.status(401).json({
+          STATUS: "ERROR",
+          ERROR_FILTER: "AUTHENTICATION_REQUIRED",
+          ERROR_CODE: "VTAPP-00417",
+          ERROR_DESCRIPTION: "Authentication required",
+        });
+      }
+
+      const result = await user_service.get_favorites(user_id);
+
+      if (result.STATUS === "ERROR") {
+        return res.status(404).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: user.controller.js | get_favorites | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00418",
         ERROR_DESCRIPTION: error.message || "Internal server error",
       });
     }

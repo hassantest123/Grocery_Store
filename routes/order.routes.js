@@ -14,7 +14,7 @@ const auth_middleware = require("../middlewares/auth.middleware");
  * @swagger
  * /api/v1/orders:
  *   post:
- *     summary: Create a new order
+ *     summary: Create a new order (authenticated or guest)
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -35,9 +35,26 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *                   type: object
  *               shipping_address:
  *                 type: object
+ *                 required:
+ *                   - name
+ *                   - phone
+ *                   - address
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                   address:
+ *                     type: string
  *               payment_method:
  *                 type: string
  *                 enum: [stripe, jazzcash, easypaisa, cod]
+ *               user_id:
+ *                 type: string
+ *                 nullable: true
+ *                 description: User ID (null for guest orders, omit for authenticated users)
  *               tax:
  *                 type: number
  *               shipping:
@@ -47,12 +64,11 @@ const auth_middleware = require("../middlewares/auth.middleware");
  *         description: Order created successfully
  *       400:
  *         description: Validation error
- *       401:
- *         description: Unauthorized
  *       500:
  *         description: Internal server error
  */
-router.post("/", auth_middleware.authenticate, order_controller.create_order);
+// Order creation allows both authenticated and guest (unauthenticated) users
+router.post("/", auth_middleware.authenticate_optional, order_controller.create_order);
 
 /**
  * @swagger

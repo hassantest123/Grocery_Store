@@ -20,6 +20,9 @@ class user_data_repository {
   async get_user_by_email(email) {
     try {
       console.log(`FILE: user.data_repository.js | get_user_by_email | Fetching user: ${email}`);
+      if (!email) {
+        return null;
+      }
       const user = await user_model.findOne({ email: email.toLowerCase() });
       return user;
     } catch (error) {
@@ -51,6 +54,22 @@ class user_data_repository {
       return updated_user;
     } catch (error) {
       console.error(`FILE: user.data_repository.js | update_user | Error:`, error);
+      throw error;
+    }
+  }
+
+  async get_user_by_phone(phone) {
+    try {
+      console.log(`FILE: user.data_repository.js | get_user_by_phone | Fetching user: ${phone}`);
+      if (!phone) {
+        return null;
+      }
+      // Normalize phone: remove any spaces, dashes, etc. and ensure it starts with 03
+      const normalized_phone = phone.trim().replace(/[\s-]/g, '');
+      const user = await user_model.findOne({ phone: normalized_phone });
+      return user;
+    } catch (error) {
+      console.error(`FILE: user.data_repository.js | get_user_by_phone | Error:`, error);
       throw error;
     }
   }
