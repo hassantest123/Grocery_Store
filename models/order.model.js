@@ -60,6 +60,8 @@ const order_schema = new Schema({
     email: { type: String, required: true },
     phone: { type: String, default: null },
     address: { type: String, required: true },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
   },
   payment_method: {
     type: String,

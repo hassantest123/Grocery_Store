@@ -66,6 +66,7 @@ class user_data_repository {
       }
       // Normalize phone: remove any spaces, dashes, etc. and ensure it starts with 03
       const normalized_phone = phone.trim().replace(/[\s-]/g, '');
+      // Get user - password field will be included by default (not set to select: false)
       const user = await user_model.findOne({ phone: normalized_phone });
       return user;
     } catch (error) {

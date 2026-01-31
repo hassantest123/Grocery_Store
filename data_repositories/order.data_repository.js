@@ -44,7 +44,7 @@ class order_data_repository {
       console.log(`FILE: order.data_repository.js | get_order_by_number | Fetching order: ${order_number}`);
       const order = await order_model.findOne({ order_number })
         .populate("user_id", "name email phone")
-        .populate("items.product_id", "name image");
+        .populate("items.product_id", "name image unit");
       return order;
     } catch (error) {
       console.error(`FILE: order.data_repository.js | get_order_by_number | Error:`, error);
@@ -72,7 +72,7 @@ class order_data_repository {
       }
 
       const orders = await order_model.find(query)
-        .populate("items.product_id", "name image")
+        .populate("items.product_id", "name image unit")
         .sort({ created_at: -1 });
       return orders;
     } catch (error) {
@@ -104,7 +104,7 @@ class order_data_repository {
 
       const orders = await order_model.find(query)
         .populate("user_id", "name email phone")
-        .populate("items.product_id", "name image")
+        .populate("items.product_id", "name image unit")
         .sort({ created_at: -1 });
       return orders;
     } catch (error) {

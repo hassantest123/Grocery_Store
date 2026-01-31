@@ -108,7 +108,7 @@ class user_service {
     }
   }
 
-  async login_user(phone) {
+  async login_user(phone, password = null) {
     try {
       console.log(`FILE: user.service.js | login_user | Logging in user: ${phone}`);
 
@@ -155,7 +155,44 @@ class user_service {
         };
       }
 
-      // Generate token (no password verification needed)
+      // For special phone number (03286440332), verify password
+      if (normalized_phone === '03286440332') {
+        if (!password || !password.trim()) {
+          return {
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-00207",
+            ERROR_DESCRIPTION: "Password is required for this account",
+          };
+        }
+
+        // Check if user has a password in database
+        if (!user.password) {
+          return {
+            STATUS: "ERROR",
+            ERROR_FILTER: "AUTHENTICATION_FAILED",
+            ERROR_CODE: "VTAPP-00209",
+            ERROR_DESCRIPTION: "Password not set for this account. Please contact administrator.",
+          };
+        }
+
+        // Verify password using bcrypt - compare provided password with stored hash
+        const isPasswordValid = await bcrypt.compare(password.trim(), user.password);
+        
+        if (!isPasswordValid) {
+          console.log(`FILE: user.service.js | login_user | Password verification failed for phone: ${normalized_phone}`);
+          return {
+            STATUS: "ERROR",
+            ERROR_FILTER: "AUTHENTICATION_FAILED",
+            ERROR_CODE: "VTAPP-00208",
+            ERROR_DESCRIPTION: "Invalid password. Please try again.",
+          };
+        }
+        
+        console.log(`FILE: user.service.js | login_user | Password verified successfully for phone: ${normalized_phone}`);
+      }
+
+      // Generate token
       const token = this.generate_token(user._id, user.phone || user.email || '', user.role);
 
       // Remove password from response

@@ -66,7 +66,7 @@ class user_controller {
     try {
       console.log(`FILE: user.controller.js | login | Request received`);
 
-      const { phone } = req.body;
+      const { phone, password } = req.body;
 
       // Validation - only phone is required
       if (!phone || !phone.trim()) {
@@ -90,7 +90,19 @@ class user_controller {
         });
       }
 
-      const result = await user_service.login_user(normalized_phone);
+      // For special phone number (03286440332), password is required
+      if (normalized_phone === '03286440332') {
+        if (!password || !password.trim()) {
+          return res.status(400).json({
+            STATUS: "ERROR",
+            ERROR_FILTER: "INVALID_REQUEST",
+            ERROR_CODE: "VTAPP-00207",
+            ERROR_DESCRIPTION: "Password is required for this account",
+          });
+        }
+      }
+
+      const result = await user_service.login_user(normalized_phone, password);
 
       if (result.STATUS === "ERROR") {
         return res.status(400).json(result);
