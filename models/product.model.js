@@ -74,6 +74,11 @@ const product_schema = new Schema({
           min: 0,
           default: 0,
         },
+        unit: {
+          type: String,
+          trim: true,
+          default: "1kg",
+        },
       },
     ],
     default: [],
