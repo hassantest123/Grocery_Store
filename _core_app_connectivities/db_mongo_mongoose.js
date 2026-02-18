@@ -49,8 +49,8 @@ const eventEmitter = require('./emitter');
 /**
  * MONGODB CONFIGURATION
  */
-const MONGO_CONNECTION_STRING = "mongodb+srv://Project:A6pyWYW5Hbu7QE9T@cluster0.obxjkz6.mongodb.net";
-const DB_NAME = "Grossery_store"; // Database name - MongoDB doesn't allow spaces, using underscore
+const MONGO_CONNECTION_STRING = "";
+const DB_NAME = ""; // Database name - MongoDB doesn't allow spaces, using underscore
 
 /**
  * CONNECTION POOL AND TIMEOUT CONFIGURATION
