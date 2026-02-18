@@ -196,6 +196,76 @@ router.get("/list", product_controller.get_products_list);
 
 /**
  * @swagger
+ * /api/v1/products/ramzan:
+ *   get:
+ *     summary: Get all Ramzan package products
+ *     tags: [Products]
+ *     description: Returns all products where ramzan_product is true
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Number of products per page
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in name and description
+ *       - in: query
+ *         name: sort_by
+ *         schema:
+ *           type: string
+ *           enum: [price_low, price_high, rating, newest]
+ *           default: newest
+ *         description: Sort products
+ *     responses:
+ *       200:
+ *         description: List of Ramzan package products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 STATUS:
+ *                   type: string
+ *                   example: SUCCESSFUL
+ *                 DB_DATA:
+ *                   type: object
+ *                   properties:
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Product'
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page:
+ *                           type: number
+ *                         limit:
+ *                           type: number
+ *                         total:
+ *                           type: number
+ *                         total_pages:
+ *                           type: number
+ */
+// IMPORTANT: This route must come before /:product_id to avoid "ramzan" being treated as product_id
+router.get("/ramzan", product_controller.get_ramzan_products);
+
+/**
+ * @swagger
  * /api/v1/products/{product_id}:
  *   get:
  *     summary: Get product by ID

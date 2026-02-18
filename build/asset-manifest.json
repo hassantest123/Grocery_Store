@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.a1e7e0ec.css",
-    "main.js": "/static/js/main.90be5e7b.js",
+    "main.css": "/static/css/main.ac4de0c2.css",
+    "main.js": "/static/js/main.df577f14.js",
     "static/js/52.09f8737a.chunk.js": "/static/js/52.09f8737a.chunk.js",
     "static/js/82.a15ad24c.chunk.js": "/static/js/82.a15ad24c.chunk.js",
     "static/js/239.be9be336.chunk.js": "/static/js/239.be9be336.chunk.js",
@@ -77,11 +77,15 @@
     "static/media/stores-logo-6.svg": "/static/media/stores-logo-6.646512a4edce553eb766ae2880ae8c46.svg",
     "static/media/stores-logo-8.svg": "/static/media/stores-logo-8.8265bb25bfda8c27568751067cfbb532.svg",
     "static/media/stores-logo-2.svg": "/static/media/stores-logo-2.b38020e07cb0788010380ad42703624f.svg",
-    "static/media/fa-v4compatibility.woff2": "/static/media/fa-v4compatibility.ea8f94e1d22e0d35ccd4.woff2",
     "index.html": "/index.html",
+    "static/media/fa-v4compatibility.woff2": "/static/media/fa-v4compatibility.ea8f94e1d22e0d35ccd4.woff2",
     "static/media/stores-logo-7.svg": "/static/media/stores-logo-7.d632881222d3549c30fbe304cbed9654.svg",
+    "static/media/slick.svg": "/static/media/slick.2630a3e3eab21c607e21.svg",
     "static/media/stores-logo-1.svg": "/static/media/stores-logo-1.dcab137c48570e73f341eadad465816a.svg",
+    "static/media/slick.eot": "/static/media/slick.a4e97f5a2a64f0ab1323.eot",
+    "static/media/slick.ttf": "/static/media/slick.c94f7671dcc99dce43e2.ttf",
     "static/media/stores-logo-4.svg": "/static/media/stores-logo-4.1b29130a3e881e29e87d5ee20db2336c.svg",
+    "static/media/slick.woff": "/static/media/slick.295183786cd8a1389865.woff",
     "static/media/stores-logo-5.svg": "/static/media/stores-logo-5.0345cb6f4f33893dbe30dd867351087c.svg",
     "static/media/package.svg": "/static/media/package.4e8f7a1c0c0ba9b3429187fcf9f623c9.svg",
     "static/media/stores-logo-3.svg": "/static/media/stores-logo-3.b19f702253419733bd033d38665c6578.svg",
@@ -90,7 +94,7 @@
     "static/media/clock.svg": "/static/media/clock.8472f2c480849ff2105d07416f1bb498.svg"
   },
   "entrypoints": [
-    "static/css/main.a1e7e0ec.css",
-    "static/js/main.90be5e7b.js"
+    "static/css/main.ac4de0c2.css",
+    "static/js/main.df577f14.js"
   ]
 }

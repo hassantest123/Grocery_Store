@@ -4,6 +4,10 @@ const order_data_repository = require("../data_repositories/order.data_repositor
 const product_data_repository = require("../data_repositories/product.data_repository");
 const mongoose = require("mongoose");
 
+// Cache for popular products - stores selected product IDs
+let cachedPopularProductIds = null;
+let cachedProductCount = 0;
+
 class home_controller {
   async get_home_data(req, res) {
     try {
@@ -15,16 +19,90 @@ class home_controller {
         ? (categories_result.DB_DATA.categories || categories_result.DB_DATA || []) 
         : [];
 
-      // Fetch most expensive products (sorted by price descending)
-      const products_result = await product_service.get_all_products({
-        page: 1,
-        limit: 20, // Get top 20 most expensive products
-        sort_by: "price_high",
-      });
-
-      const popular_products = products_result.STATUS === "SUCCESSFUL"
-        ? (products_result.DB_DATA.products || []).slice(0, 12) // Limit to 12 most expensive
-        : [];
+      // Fetch products with consistent random selection (cached)
+      const product_model = require("../models/product.model");
+      // Exclude ramzan products from popular products
+      const total_active_products = await product_model.countDocuments({ is_active: 1, ramzan_product: { $ne: true } });
+      
+      let popular_products = [];
+      
+      // Check if we need to reselect products (cache is empty or product count changed)
+      if (!cachedPopularProductIds || cachedProductCount !== total_active_products) {
+        console.log(`FILE: home.controller.js | get_home_data | Selecting new random products (cache miss or product count changed)`);
+        
+        // Fetch all active products for random selection (exclude ramzan products)
+        const all_products = await product_model.find({ is_active: 1, ramzan_product: { $ne: true } })
+          .populate('category_id', 'name image')
+          .select('-__v')
+          .lean();
+        
+        console.log(`FILE: home.controller.js | get_home_data | Fetched ${all_products.length} products for randomization`);
+        
+        if (all_products.length > 0) {
+          // Use a seeded random selection for consistency
+          // Use product count as seed to ensure same selection for same product set
+          const seed = total_active_products;
+          
+          // Shuffle array with seed (Fisher-Yates shuffle with seeded random)
+          const shuffled = [...all_products];
+          let seedValue = seed;
+          const seededRandom = () => {
+            seedValue = (seedValue * 9301 + 49297) % 233280;
+            return seedValue / 233280;
+          };
+          
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(seededRandom() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          
+          // Take 20 random products (or all available if less than 20)
+          const target_count = Math.min(20, shuffled.length);
+          const selected_products = shuffled.slice(0, target_count);
+          
+          // Cache the selected product IDs
+          cachedPopularProductIds = selected_products.map(p => p._id.toString());
+          cachedProductCount = total_active_products;
+          
+          popular_products = selected_products;
+          
+          console.log(`FILE: home.controller.js | get_home_data | Cached ${popular_products.length} popular products`);
+        }
+      } else {
+        // Use cached product IDs
+        console.log(`FILE: home.controller.js | get_home_data | Using cached popular products`);
+        
+        const product_ids = cachedPopularProductIds
+          .filter(id => mongoose.Types.ObjectId.isValid(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+        
+        if (product_ids.length > 0) {
+          popular_products = await product_model.find({
+            _id: { $in: product_ids },
+            is_active: 1,
+            ramzan_product: { $ne: true } // Exclude ramzan products
+          })
+          .populate('category_id', 'name image')
+          .lean();
+          
+          // Maintain the cached order
+          const product_map = {};
+          popular_products.forEach(product => {
+            product_map[product._id.toString()] = product;
+          });
+          
+          const ordered_products = [];
+          cachedPopularProductIds.forEach(id => {
+            if (product_map[id]) {
+              ordered_products.push(product_map[id]);
+            }
+          });
+          
+          popular_products = ordered_products;
+          
+          console.log(`FILE: home.controller.js | get_home_data | Returning ${popular_products.length} cached popular products`);
+        }
+      }
 
       // Fetch Daily Best Sells (today's best selling products)
       const daily_best_sells = await get_daily_best_sells();
@@ -74,10 +152,11 @@ async function get_daily_best_sells() {
         .map(id => new mongoose.Types.ObjectId(id));
       
       if (product_ids.length > 0) {
-        // Fetch products by IDs and maintain order
+        // Fetch products by IDs and maintain order (exclude ramzan products)
         const best_products = await product_model.find({
           _id: { $in: product_ids },
-          is_active: 1
+          is_active: 1,
+          ramzan_product: { $ne: true } // Exclude ramzan products
         }).populate('category_id', 'name image');
         
         // Create a map for quick lookup
@@ -104,13 +183,13 @@ async function get_daily_best_sells() {
       // Get IDs we already have to exclude them
       const exclude_ids = Array.from(seen_product_ids).map(id => new mongoose.Types.ObjectId(id));
       
-      // Build query to exclude already included products
-      const additional_query = { is_active: 1 };
+      // Build query to exclude already included products and ramzan products
+      const additional_query = { is_active: 1, ramzan_product: { $ne: true } };
       if (exclude_ids.length > 0) {
         additional_query._id = { $nin: exclude_ids };
       }
       
-      // Fetch additional products (excluding already included ones)
+      // Fetch additional products (excluding already included ones and ramzan products)
       const additional_products = await product_model
         .find(additional_query)
         .populate('category_id', 'name image')

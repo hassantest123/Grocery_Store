@@ -31,7 +31,9 @@ const jazzcash_routes = require("./routes/jazzcash.routes");
 const upload_routes = require("./routes/upload.routes");
 const notification_routes = require("./routes/notification.routes");
 const comment_routes = require("./routes/comment.routes");
+const sitemap_routes = require("./routes/sitemap.routes");
 const { initializeBullBoard } = require("./admin_board");
+const apiKeyMiddleware = require("./middlewares/apiKey.middleware");
 
 const app = express();
 
@@ -50,7 +52,7 @@ app.use("/api-docs", swagger_ui.serve, swagger_ui.setup(swagger_spec, {
 // Access at: http://localhost:PORT/admin/queues
 initializeBullBoard(app, '/admin/queues');
 
-// Health check endpoint
+// Health check endpoint (excluded from API key validation)
 /**
  * @swagger
  * /health:
@@ -88,6 +90,10 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Apply API Key Middleware to all API routes
+// This ensures all API endpoints require a valid API key
+app.use("/api/v1", apiKeyMiddleware.validateApiKey);
+
 // API Routes
 app.use("/api/v1/users", user_routes);
 app.use("/api/v1/products", product_routes);
@@ -100,6 +106,9 @@ app.use("/api/v1/jazzcash", jazzcash_routes);
 app.use("/api/v1/upload", upload_routes);
 app.use("/api/v1/notifications", notification_routes);
 app.use("/api/v1/comments", comment_routes);
+
+// Sitemap route (before static files to ensure it's accessible)
+app.use("/", sitemap_routes);
 
 // Serve static files from React app build directory
 const frontendBuildPath = path.join(__dirname, "build");

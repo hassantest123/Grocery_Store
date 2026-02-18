@@ -152,6 +152,10 @@ const product_schema = new Schema({
     trim: true,
     default: "1kg",
   },
+  ramzan_product: {
+    type: Boolean,
+    default: false, // Default false, set to true for Ramzan package products
+  },
   is_active: {
     type: Number,
     enum: [0, 1],
@@ -171,6 +175,7 @@ const product_schema = new Schema({
 product_schema.index({ category: 1 }); // Keep for backward compatibility
 product_schema.index({ category_id: 1 }); // New index for category reference
 product_schema.index({ is_active: 1 });
+product_schema.index({ ramzan_product: 1 }); // Index for ramzan products filtering
 product_schema.index({ created_at: -1 });
 product_schema.index({ price: 1 });
 product_schema.index({ rating: -1 });

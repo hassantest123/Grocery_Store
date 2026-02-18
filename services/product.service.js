@@ -433,6 +433,79 @@ class product_service {
       };
     }
   }
+
+  async get_ramzan_products(query_params = {}) {
+    try {
+      console.log(`FILE: product.service.js | get_ramzan_products | Fetching ramzan products with params:`, query_params);
+
+      const page = parseInt(query_params.page) || 1;
+      const limit = parseInt(query_params.limit) || 50;
+      const skip = (page - 1) * limit;
+
+      // Build filters
+      const filters = {};
+      
+      // Category filter
+      if (query_params.category) {
+        const category_model = require("../models/category.model");
+        const categoryDoc = await category_model.findOne({ name: query_params.category, is_active: 1 });
+        if (categoryDoc) {
+          filters.category_id = categoryDoc._id;
+        } else {
+          // Fallback to category name for backward compatibility
+          filters.category = query_params.category;
+        }
+      }
+
+      // Search filter
+      if (query_params.search) {
+        filters.$or = [
+          { name: { $regex: query_params.search, $options: 'i' } },
+          { description: { $regex: query_params.search, $options: 'i' } },
+        ];
+      }
+
+      // Build sort
+      const sort = {};
+      if (query_params.sort_by === 'price_low') {
+        sort.price = 1;
+      } else if (query_params.sort_by === 'price_high') {
+        sort.price = -1;
+      } else if (query_params.sort_by === 'rating') {
+        sort.rating = -1;
+      } else {
+        sort.created_at = -1; // Default: newest first
+      }
+
+      // Fetch products
+      const products = await product_data_repository.get_ramzan_products(filters, sort, skip, limit);
+      const total = await product_data_repository.count_ramzan_products(filters);
+
+      return {
+        STATUS: "SUCCESSFUL",
+        ERROR_CODE: "",
+        ERROR_FILTER: "",
+        ERROR_DESCRIPTION: "",
+        DB_DATA: {
+          products: products,
+          pagination: {
+            page: page,
+            limit: limit,
+            total: total,
+            total_pages: Math.ceil(total / limit),
+          },
+        },
+      };
+    } catch (error) {
+      console.error(`FILE: product.service.js | get_ramzan_products | Error:`, error);
+      return {
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00520",
+        ERROR_DESCRIPTION: error.message || "Failed to fetch ramzan products",
+      };
+    }
+  }
 }
 
 module.exports = new product_service();

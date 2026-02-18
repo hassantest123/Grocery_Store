@@ -135,6 +135,49 @@ class product_data_repository {
       throw error;
     }
   }
+
+  async get_ramzan_products(filters = {}, sort = {}, skip = 0, limit = 50) {
+    try {
+      console.log(`FILE: product.data_repository.js | get_ramzan_products | Fetching ramzan products`);
+      const query = product_model.find({ 
+        is_active: 1, 
+        ramzan_product: true,
+        ...filters 
+      });
+      
+      // Populate category_id to get category details
+      query.populate('category_id', 'name image');
+      
+      if (Object.keys(sort).length > 0) {
+        query.sort(sort);
+      } else {
+        query.sort({ created_at: -1 }); // Default sort by newest
+      }
+      
+      query.skip(skip).limit(limit);
+      const products = await query.exec();
+      return products;
+    } catch (error) {
+      console.error(`FILE: product.data_repository.js | get_ramzan_products | Error:`, error);
+      throw error;
+    }
+  }
+
+  async count_ramzan_products(filters = {}) {
+    try {
+      console.log(`FILE: product.data_repository.js | count_ramzan_products | Counting ramzan products`);
+      const count = await product_model.countDocuments({ 
+        is_active: 1, 
+        ramzan_product: true,
+        ...filters 
+      });
+      console.log(`FILE: product.data_repository.js | count_ramzan_products | Found ${count} ramzan products`);
+      return count;
+    } catch (error) {
+      console.error(`FILE: product.data_repository.js | count_ramzan_products | Error:`, error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new product_data_repository();

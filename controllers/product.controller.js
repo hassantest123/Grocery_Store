@@ -17,7 +17,8 @@ class product_controller {
         label, 
         stock_quantity, 
         unit,
-        additional_items
+        additional_items,
+        ramzan_product
       } = req.body;
 
       // Validation - main_image or image (for backward compatibility) is required
@@ -75,6 +76,7 @@ class product_controller {
         stock_quantity: stock_quantity || 0,
         unit: unit || "1kg",
         additional_items: additional_items || [],
+        ramzan_product: ramzan_product === true || ramzan_product === 'true',
       });
 
       if (result.STATUS === "ERROR") {
@@ -301,6 +303,28 @@ class product_controller {
         STATUS: "ERROR",
         ERROR_FILTER: "TECHNICAL_ISSUE",
         ERROR_CODE: "VTAPP-00516",
+        ERROR_DESCRIPTION: error.message || "Internal server error",
+      });
+    }
+  }
+
+  async get_ramzan_products(req, res) {
+    try {
+      console.log(`FILE: product.controller.js | get_ramzan_products | Request received`);
+
+      const result = await product_service.get_ramzan_products(req.query);
+
+      if (result.STATUS === "ERROR") {
+        return res.status(400).json(result);
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error(`FILE: product.controller.js | get_ramzan_products | Error:`, error);
+      return res.status(500).json({
+        STATUS: "ERROR",
+        ERROR_FILTER: "TECHNICAL_ISSUE",
+        ERROR_CODE: "VTAPP-00521",
         ERROR_DESCRIPTION: error.message || "Internal server error",
       });
     }
